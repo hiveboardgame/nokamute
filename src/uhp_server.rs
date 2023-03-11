@@ -104,12 +104,11 @@ impl<W: Write> UhpServer<W> {
         writeln!(self.output, "---Finding puzzle from ended game state---", )?;
         
         //Turn on verbose mode - doesn't seem to work properly...
-        self.config.opts.verbose();
+        self.options("set Verbose True")?;
+        //self.config.opts.verbose();
 
         //Set up the test game - for debug purposes
-        // newgame Base+MLP;InProgress;White[23];wG1;bP \wG1;wB1 wG1-;bQ bP/;wQ wG1\;bA1 bQ-;wP /wQ;bL -bQ;wA1 /wP;bM \bA1;wA2 -wP;bM -wA2;wM wB1\;bA2 /bM;wM wB1;bA2 wA1\;wM wG1;bB1 bA2-;wM bP;bL /wM;wA3 wB1\;bL wA3/;wA3 -wM;bB1 bA2;wG2 /wA3;bB1 wA1;wG2 -bQ;bB1 wP;wS1 \wG2;bA3 \bM;wS1 bA1/;bA3 -wA3;wB2 \wG2;bS1 \bA3;wB2 \bQ;bS1 bA3\;wL -wB2;bB2 \bA3;wL bQ\;bB2 bA3;wL -wB2;bB2 wA3;wL bQ\;bB2 wG2
         let gamestr = String::from("newgame Base+MLP;InProgress;White[23];wG1;bP \\wG1;wB1 wG1-;bQ bP/;wQ wG1\\;bA1 bQ-;wP /wQ;bL -bQ;wA1 /wP;bM \\bA1;wA2 -wP;bM -wA2;wM wB1\\;bA2 /bM;wM wB1;bA2 wA1\\;wM wG1;bB1 bA2-;wM bP;bL /wM;wA3 wB1\\;bL wA3/;wA3 -wM;bB1 bA2;wG2 /wA3;bB1 wA1;wG2 -bQ;bB1 wP;wS1 \\wG2;bA3 \\bM;wS1 bA1/;bA3 -wA3;wB2 \\wG2;bS1 \\bA3;wB2 \\bQ;bS1 bA3\\;wL -wB2;bB2 \\bA3;wL bQ\\;bB2 bA3;wL -wB2;bB2 wA3;wL bQ\\;bB2 wG2");
-        //let gamestr = String::from("newgame Base+MLP;InProgress;White[5];wG1;bP \\wG1;wB1 wG1-;bQ bP/");
         self.command(&gamestr);
         
         //2DO: update the below code to work
@@ -128,6 +127,16 @@ impl<W: Write> UhpServer<W> {
         }
         let m = self.engine.as_mut().unwrap().generate_move();
         writeln!(self.output, "{}", board.to_move_string(m))?;
+        
+        // undo one move
+        writeln!(self.output, "--- Undo one move ---", )?;
+        self.command("undo");
+        writeln!(self.output, "--- bestmove depth 6 ---", )?;
+        self.command("bestmove depth 6");
+        writeln!(self.output, "--- play bB2 bA3 ---", )?;
+        self.command("play bB2 bA3");
+        writeln!(self.output, "--- bestmove depth 6 ---", )?;
+        self.command("bestmove depth 6");
         Ok(())
     }
     fn pv(&mut self) -> Result<()> {
