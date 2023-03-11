@@ -82,7 +82,7 @@ impl<W: Write> UhpServer<W> {
 
     fn best_move(&mut self, args: &str) -> Result<()> {
         self.pv_dirty = false;
-        let board = self.board.as_ref().ok_or(UhpError::GameNotStarted)?;
+        //let board = self.board.as_ref().ok_or(UhpError::GameNotStarted)?;
         if let Some(arg) = args.strip_prefix("depth ") {
             let depth =
                 arg.parse::<u8>().map_err(|_| UhpError::UnrecognizedCommand(args.to_string()))?;
@@ -94,11 +94,42 @@ impl<W: Write> UhpServer<W> {
         } else {
             return Err(UhpError::UnrecognizedCommand(args.to_string()));
         }
+        //let m = 
+        self.engine.as_mut().unwrap().generate_move();
+        //writeln!(self.output, "{}", board.to_move_string(m))?;
+        Ok(())
+    }
+	
+	fn find_puzzle(&mut self, args: &str) -> Result<()> {
+        writeln!(self.output, "---Finding puzzle from ended game state---", )?;
+        
+        //Turn on verbose mode - doesn't seem to work properly...
+        self.config.opts.verbose();
+
+        //Set up the test game - for debug purposes
+        // newgame Base+MLP;InProgress;White[23];wG1;bP \wG1;wB1 wG1-;bQ bP/;wQ wG1\;bA1 bQ-;wP /wQ;bL -bQ;wA1 /wP;bM \bA1;wA2 -wP;bM -wA2;wM wB1\;bA2 /bM;wM wB1;bA2 wA1\;wM wG1;bB1 bA2-;wM bP;bL /wM;wA3 wB1\;bL wA3/;wA3 -wM;bB1 bA2;wG2 /wA3;bB1 wA1;wG2 -bQ;bB1 wP;wS1 \wG2;bA3 \bM;wS1 bA1/;bA3 -wA3;wB2 \wG2;bS1 \bA3;wB2 \bQ;bS1 bA3\;wL -wB2;bB2 \bA3;wL bQ\;bB2 bA3;wL -wB2;bB2 wA3;wL bQ\;bB2 wG2
+        let gamestr = String::from("newgame Base+MLP;InProgress;White[23];wG1;bP \\wG1;wB1 wG1-;bQ bP/;wQ wG1\\;bA1 bQ-;wP /wQ;bL -bQ;wA1 /wP;bM \\bA1;wA2 -wP;bM -wA2;wM wB1\\;bA2 /bM;wM wB1;bA2 wA1\\;wM wG1;bB1 bA2-;wM bP;bL /wM;wA3 wB1\\;bL wA3/;wA3 -wM;bB1 bA2;wG2 /wA3;bB1 wA1;wG2 -bQ;bB1 wP;wS1 \\wG2;bA3 \\bM;wS1 bA1/;bA3 -wA3;wB2 \\wG2;bS1 \\bA3;wB2 \\bQ;bS1 bA3\\;wL -wB2;bB2 \\bA3;wL bQ\\;bB2 bA3;wL -wB2;bB2 wA3;wL bQ\\;bB2 wG2");
+        //let gamestr = String::from("newgame Base+MLP;InProgress;White[5];wG1;bP \\wG1;wB1 wG1-;bQ bP/");
+        self.command(&gamestr);
+        
+        //2DO: update the below code to work
+        let board = self.board.as_ref().ok_or(UhpError::GameNotStarted)?;
+        //let engine = self.engine.as_mut();
+        if let Some(arg) = args.strip_prefix("depth ") {
+            let depth = arg.parse::<u8>().map_err(|_| UhpError::UnrecognizedCommand(args.to_string()))?;
+            self.engine.as_mut().unwrap().set_max_depth(depth);
+        } else if let Some(arg) = args.strip_prefix("time ") {
+            let dur =
+                parse_hhmmss(arg).ok_or_else(|| UhpError::UnrecognizedCommand(args.to_string()))?;
+            self.engine.as_mut().unwrap().set_timeout(dur);
+        } else {
+            let depth = 6;
+            self.engine.as_mut().unwrap().set_max_depth(depth);
+        }
         let m = self.engine.as_mut().unwrap().generate_move();
         writeln!(self.output, "{}", board.to_move_string(m))?;
         Ok(())
     }
-
     fn pv(&mut self) -> Result<()> {
         let pv = self.engine.as_ref().ok_or(UhpError::GameNotStarted)?.principal_variation();
         let board = self.board.as_mut().unwrap();
@@ -234,9 +265,14 @@ impl<W: Write> UhpServer<W> {
 
     // Bonus undocumented command.
     fn perft(&mut self, args: &str) -> Result<()> {
-        let depth = args.parse::<u8>().unwrap_or(20);
+        let depth = args.parse::<u8>().unwrap_or(6);
         let mut b = self.board.as_ref().ok_or(UhpError::GameNotStarted)?.clone();
         minimax::perft::<Rules>(&mut b, depth, false);
+        Ok(())
+    }
+
+    fn show_state(&mut self) -> Result<()> {
+        writeln!(self.output, "{}", self.board.as_mut().unwrap().game_string())?;
         Ok(())
     }
 
@@ -255,6 +291,8 @@ impl<W: Write> UhpServer<W> {
             "pv" => self.pv(),
             "undo" => self.undo(args),
             "options" => self.options(args),
+            "state" => self.show_state(),
+            "findpuzzle" => self.find_puzzle(args),
             "perft" => self.perft(args),
             "exit" => return true,
             _ => Err(UhpError::UnrecognizedCommand(command.to_string())),
